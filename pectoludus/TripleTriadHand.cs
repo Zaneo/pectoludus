@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CodeContractTest
+namespace pectoludus
 {
     /// <summary>
     /// Represent the cards currently in a player's hand

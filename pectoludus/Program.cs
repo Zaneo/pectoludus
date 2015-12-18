@@ -9,13 +9,13 @@ using System.Globalization;
 using System.Net.Configuration;
 using System.Threading;
 
-namespace CodeContractTest
+namespace pectoludus
 {
     class Program {
         static void Main(string[] args) {
             Console.OutputEncoding = Encoding.UTF8;
 
-            TripleTriadGameContainer gameContainer = new TripleTriadGameContainer();
+            TripleTriadGameContainer gameContainer = new TripleTriadGameContainer(new List<TripleTriadGameContainer.GameruleType>() {TripleTriadGameContainer.GameruleType.Plus});
             gameContainer.AddPlayer(TripleTriadCard.Ownership.Player);
             gameContainer.AddPlayer(TripleTriadCard.Ownership.NPC);
 
@@ -28,26 +28,31 @@ namespace CodeContractTest
 
             playerHand.PlayCard(0, 0, 0);
             gameContainer.DrawCurrentGame();
-            Thread.Sleep(1000);
+            if (!Debugger.IsAttached)
+                Thread.Sleep(1000);
 
-            npcHand.PlayCard("Dodo",1,0);
+            playerHand.PlayCard(1, 2, 0);
             gameContainer.DrawCurrentGame();
-            Thread.Sleep(1000);
+            if (!Debugger.IsAttached)
+                Thread.Sleep(1000);
 
-            playerHand.PlayCard(1, 1, 1);
+            npcHand.PlayCard("Tonberry", 1, 0);
             gameContainer.DrawCurrentGame();
-            Thread.Sleep(1000);
+            if (!Debugger.IsAttached)
+                Thread.Sleep(1000);
 
             npcHand.PlayCard("Sabotender", 2, 1);
             gameContainer.DrawCurrentGame();
-            Thread.Sleep(1000);
+            if (!Debugger.IsAttached)
+                Thread.Sleep(1000);
 
-            playerHand.PlayCard(2, 2, 0);
+            playerHand.PlayCard(2, 1, 1);
             gameContainer.DrawCurrentGame();
-            Thread.Sleep(1000);
+            if (!Debugger.IsAttached)
+                Thread.Sleep(1000);
 
-            npcHand.PlayCard("Dodo", 0, 1);
-            gameContainer.DrawCurrentGame();
+            //npcHand.PlayCard("Dodo", 0, 1);
+            //gameContainer.DrawCurrentGame();
         }
     }
 }

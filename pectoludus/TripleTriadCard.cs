@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CodeContractTest
+namespace pectoludus
 {
     [DebuggerDisplay("Name={Name}")]
     internal class TripleTriadCard
@@ -63,8 +63,8 @@ namespace CodeContractTest
         /// <summary>
         /// The Family the card belongs too
         /// </summary>
-        /// <remarks>This has an effect for particular Gamerules</remarks>
-        /// <seealso cref="TripleTriadGameContainer.Gamerules"/>
+        /// <remarks>This has an effect for particular GameruleType</remarks>
+        /// <seealso cref="TripleTriadGameContainer.GameruleType"/>
         public enum Category
         {
             None,
@@ -128,6 +128,17 @@ namespace CodeContractTest
             Contract.Requires(CardList.ContainsKey(cardName));
             return CardList[cardName];
         }
+
+        /// <summary>
+        /// Gets the opposite card face, to the specified card face
+        /// </summary>
+        /// <param name="direction">The direction of the current card face</param>
+        /// <returns>The direction of the opposite card face</returns>
+        public static FaceDirection GetOppositeDirection(FaceDirection direction)
+        {
+            return (FaceDirection)(((int)direction + 2) % 4);
+        }
+
         /// <summary>
         /// Gets the value of the face specified by the direction
         /// </summary>
