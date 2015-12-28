@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
@@ -11,18 +13,41 @@ namespace pectoludus
     /// <summary>
     /// The playing field on which the game takes place
     /// </summary>
-    internal class TripleTriadGamegrid
+    public class TripleTriadGamegrid
     {
         public const int FieldWidth = 3;
         public const int FieldHeight = 3;
+
         private readonly TripleTriadCard[,] _playingField = new TripleTriadCard[FieldHeight, FieldWidth];
 
         public int NumberofCardsOnField { get; private set; }
-        internal Dictionary<TripleTriadCard.Ownership, int> CardCountByOwner { get; } = new Dictionary<TripleTriadCard.Ownership, int>();
 
-        private TripleTriadGameContainer _attachedContainer;
+        public bool CardCountByOwnerDirty { get; set; }
 
-        public TripleTriadGamegrid(TripleTriadGameContainer container) {
+        public Dictionary<TripleTriadCard.Ownership, int> CardCountByOwner { get; private set; } = new Dictionary<TripleTriadCard.Ownership, int>();
+
+        private readonly TripleTriadGameContainer _attachedContainer;
+
+        /// <summary>
+        /// Clears the GameGrid, and resets all tracked statistics
+        /// </summary>
+        public void ResetGameGrid() {
+            NumberofCardsOnField = 0;
+            CardCountByOwnerDirty = true;
+            ((IList)_playingField).Clear();
+            Array.Clear(_playingField,0,_playingField.Length);
+        }
+
+        // Maybe allow container to be null?
+        // Pros:
+        // Can create a GameGrid without a container
+        // Cons:
+        // Almost all actions will be undefined and cause Null Reference exceptions
+        /// <summary>
+        /// Creates a GameGrid, and links it to the specified GameContainer
+        /// </summary>
+        /// <param name="container">The GameContainer to link to</param>
+        public TripleTriadGamegrid([CanBeNull] TripleTriadGameContainer container) {
             _attachedContainer = container;
         }
 
@@ -43,6 +68,14 @@ namespace pectoludus
         public bool TryPlaceCard(TripleTriadGameContainer.Coordinate coord, ref TripleTriadCard card)
         {
             return TryPlaceCard(coord.X, coord.Y, ref card);
+        }
+
+
+        public void UpdateCardCountByPlayer() {
+            CardCountByOwner = (from TripleTriadCard cards in _playingField
+                where cards != null
+                group cards by cards.Owner).ToDictionary(g => g.Key, g => g.Count());
+            CardCountByOwnerDirty = false;
         }
 
         /// <summary>
@@ -73,6 +106,8 @@ namespace pectoludus
             PropogateSideEffects(x, y, false);
 
             NumberofCardsOnField++;
+            CardCountByOwnerDirty = true;
+
             return true;
         }
 

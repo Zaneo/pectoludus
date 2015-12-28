@@ -4,13 +4,14 @@ using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
 namespace pectoludus
 {
     /// <summary>
     /// Represents a complete game of cards
     /// </summary>
-    class TripleTriadGameContainer {
+     public class TripleTriadGameContainer {
         public struct Coordinate {
 
             public int X { get; private set; }
@@ -55,7 +56,7 @@ namespace pectoludus
             public void PerFaceStep(TripleTriadCard.FaceDirection direction, TripleTriadCard existingCard, TripleTriadCard placedCard) {
                 TripleTriadCard.FaceDirection opposite = TripleTriadCard.GetOppositeDirection(direction);
                 if (existingCard.GetCardValue(opposite) < placedCard.GetCardValue(direction))
-                    _affectetdCardList.Add(opposite);
+                    _affectetdCardList.Add(direction);
             }
 
             public List<TripleTriadCard.FaceDirection> GetAffectedCards() {
@@ -76,9 +77,9 @@ namespace pectoludus
                 int sum = existingCard.GetCardValue(opposite) + placedCard.GetCardValue(direction);
 
                 if (!_cardsWithSameSum.ContainsKey(sum))
-                    _cardsWithSameSum.Add(sum,new List<TripleTriadCard.FaceDirection>() {opposite});
+                    _cardsWithSameSum.Add(sum,new List<TripleTriadCard.FaceDirection> {direction});
                 else
-                    _cardsWithSameSum[sum].Add(opposite);
+                    _cardsWithSameSum[sum].Add(direction);
 
             }
 
@@ -125,15 +126,42 @@ namespace pectoludus
             {GameruleType.GreaterThan, new GameRuleDefinition("Greater Than",GameruleType.GreaterThan, false, typeof(GreaterThanHandler))},
             {GameruleType.Plus, new GameRuleDefinition("Plus", GameruleType.Plus, true, typeof(PlusHandler)) },
         };
+        
+        /// <summary>
+        /// Resets aspects of the GameContainer to prepare for a new game to be played.
+        /// </summary>
+        public void ResetForNewGame() {
+            _gamegrid.ResetGameGrid();
+            _currentCardsInFamily.Clear();
+        }
 
-        public TripleTriadGameContainer(List<GameruleType> activeRules) {
-            ActiveGameRules = activeRules;
+        public TripleTriadGameContainer([CanBeNull] List<GameruleType> activeRules) {
+            ActiveGameRules = activeRules ?? new List<GameruleType>();
             _gamegrid = new TripleTriadGamegrid(this);
         }
 
         internal bool PlayCard(TripleTriadCard tripleTriadCard, int x, int y)
         {
             return PlayCard(tripleTriadCard, new Coordinate(x, y));
+        }
+
+        public int GetCardCountForOwner(TripleTriadCard.Ownership ownership) {
+            Contract.Requires(Enum.IsDefined(typeof(TripleTriadCard.Ownership), ownership));
+            if (_gamegrid.CardCountByOwnerDirty)
+                _gamegrid.UpdateCardCountByPlayer();
+
+            // When all the cards belong to a single user the key will not be found.
+            int count;
+            return _gamegrid.CardCountByOwner.TryGetValue(ownership, out count) ? count : 0;
+        }
+
+        /// <summary>
+        /// Gets the number of card in play that have the specified category
+        /// </summary>
+        /// <param name="category">The category of the card</param>
+        /// <returns></returns>
+        public int GetCardCountForCategory(TripleTriadCard.Category category) {
+            return !_currentCardsInFamily.ContainsKey(category) ? 0 : _currentCardsInFamily[category].Count;
         }
 
         public bool PlayCard(TripleTriadCard card, Coordinate coord) {
@@ -146,8 +174,9 @@ namespace pectoludus
             if (!_currentCardsInFamily.ContainsKey(card.Family)) {
                 _currentCardsInFamily[card.Family] = new List<Coordinate> {coord};
             }
-
-            _currentCardsInFamily[card.Family].Add(coord) ;
+            else {
+                _currentCardsInFamily[card.Family].Add(coord);
+            }
 
             return true;
         }
@@ -160,6 +189,14 @@ namespace pectoludus
             Contract.Requires(Enum.IsDefined(typeof(TripleTriadCard.Ownership),ownership));
             _playersHands.Add(ownership, new TripleTriadHand(ownership, this));
             _gamegrid.RegisterPlayer(ownership);
+        }
+
+        /// <summary>
+        /// Gets the Ownership key of all the currently attached players
+        /// </summary>
+        /// <returns>The list of Ownership keys of the attached players</returns>
+        public List<TripleTriadCard.Ownership> GetPlayers() {
+            return new List<TripleTriadCard.Ownership>(_playersHands.Keys);
         }
 
         /// <summary>

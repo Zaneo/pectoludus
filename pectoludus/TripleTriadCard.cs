@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 
 namespace pectoludus
 {
-    [DebuggerDisplay("Name={Name}")]
-    internal class TripleTriadCard
+    [DebuggerDisplay("Name={Name}, Owner={Owner}")]
+    public class TripleTriadCard
     {
         /// <summary>
         /// Stores all the information of a card, but is not playable.

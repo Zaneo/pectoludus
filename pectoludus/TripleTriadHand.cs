@@ -10,7 +10,7 @@ namespace pectoludus
     /// <summary>
     /// Represent the cards currently in a player's hand
     /// </summary>
-    class TripleTriadHand {
+    public class TripleTriadHand {
         public const int MaxAllowedCardsInHand = 5;
         private readonly TripleTriadCard[] _cardsInHand;
         private int _currentNumberOfCards;
@@ -80,6 +80,22 @@ namespace pectoludus
             Contract.Requires(y >= 0);
             Contract.Requires(y < TripleTriadGamegrid.FieldHeight);
             TripleTriadCard card = new TripleTriadCard(name) {Owner = Owner};
+            return _currentGameContainer.PlayCard(card, x, y);
+        }
+
+        /// <summary>
+        /// Attempts to play the specified card by value, in the attached GameContainer, at the specified card coordinates
+        /// </summary>
+        /// <param name="card">The card to be played</param>
+        /// <param name="x">The x card coordinate</param>
+        /// <param name="y">The y card coordinate</param>
+        /// <returns></returns>
+        public bool PlayCard(TripleTriadCard card, int x, int y) {
+            Contract.Requires(x >= 0);
+            Contract.Requires(x < TripleTriadGamegrid.FieldWidth);
+            Contract.Requires(y >= 0);
+            Contract.Requires(y < TripleTriadGamegrid.FieldHeight);
+            card.Owner = Owner;
             return _currentGameContainer.PlayCard(card, x, y);
         }
     }
