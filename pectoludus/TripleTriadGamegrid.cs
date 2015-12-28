@@ -1,28 +1,54 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 
-namespace CodeContractTest
+namespace pectoludus
 {
     /// <summary>
     /// The playing field on which the game takes place
     /// </summary>
-    internal class TripleTriadGamegrid
+    public class TripleTriadGamegrid
     {
         public const int FieldWidth = 3;
         public const int FieldHeight = 3;
-        private readonly TripleTriadCard[,] _playingField;
+
+        private readonly TripleTriadCard[,] _playingField = new TripleTriadCard[FieldHeight, FieldWidth];
 
         public int NumberofCardsOnField { get; private set; }
-        internal Dictionary<TripleTriadCard.Ownership, int> CardCountByOwner { get; }
 
-        public TripleTriadGamegrid()
-        {
-            _playingField = new TripleTriadCard[FieldHeight, FieldWidth];
-            CardCountByOwner = new Dictionary<TripleTriadCard.Ownership, int>();
+        public bool CardCountByOwnerDirty { get; set; }
+
+        public Dictionary<TripleTriadCard.Ownership, int> CardCountByOwner { get; private set; } = new Dictionary<TripleTriadCard.Ownership, int>();
+
+        private readonly TripleTriadGameContainer _attachedContainer;
+
+        /// <summary>
+        /// Clears the GameGrid, and resets all tracked statistics
+        /// </summary>
+        public void ResetGameGrid() {
+            NumberofCardsOnField = 0;
+            CardCountByOwnerDirty = true;
+            ((IList)_playingField).Clear();
+            Array.Clear(_playingField,0,_playingField.Length);
+        }
+
+        // Maybe allow container to be null?
+        // Pros:
+        // Can create a GameGrid without a container
+        // Cons:
+        // Almost all actions will be undefined and cause Null Reference exceptions
+        /// <summary>
+        /// Creates a GameGrid, and links it to the specified GameContainer
+        /// </summary>
+        /// <param name="container">The GameContainer to link to</param>
+        public TripleTriadGamegrid([CanBeNull] TripleTriadGameContainer container) {
+            _attachedContainer = container;
         }
 
         /// <summary>
@@ -42,6 +68,14 @@ namespace CodeContractTest
         public bool TryPlaceCard(TripleTriadGameContainer.Coordinate coord, ref TripleTriadCard card)
         {
             return TryPlaceCard(coord.X, coord.Y, ref card);
+        }
+
+
+        public void UpdateCardCountByPlayer() {
+            CardCountByOwner = (from TripleTriadCard cards in _playingField
+                where cards != null
+                group cards by cards.Owner).ToDictionary(g => g.Key, g => g.Count());
+            CardCountByOwnerDirty = false;
         }
 
         /// <summary>
@@ -69,19 +103,12 @@ namespace CodeContractTest
             _playingField[y, x] = card;
 
             // Find any adjacent cards that may have been affected by this placement
-            PropogateSideEffects(x, y);
+            PropogateSideEffects(x, y, false);
 
             NumberofCardsOnField++;
-            return true;
-        }
+            CardCountByOwnerDirty = true;
 
-        /// <summary>
-        /// Gets the opposite card face, to the specified card face
-        /// </summary>
-        /// <param name="direction">The direction of the current card face</param>
-        /// <returns>The direction of the opposite card face</returns>
-        private static TripleTriadCard.FaceDirection GetOppositeDirection(TripleTriadCard.FaceDirection direction) {
-            return (TripleTriadCard.FaceDirection)(((int)direction + 2) % 4) ;
+            return true;
         }
 
         /// <summary>
@@ -106,18 +133,22 @@ namespace CodeContractTest
         }
 
         /// <summary>
-        /// Checks to see if the placement of a card will cause ownership changes in any other cards based on the current Gamerules
+        /// Checks to see if the placement of a card will cause ownership changes in any other cards based on the current GameruleType
         /// </summary>
         /// <param name="x">The x coordinate of the card which caused the check</param>
         /// <param name="y">The y coordinate of the card which caused the check</param>
-        /// <seealso cref="TripleTriadGameContainer.Gamerules"/>
-        private void PropogateSideEffects(int x, int y) {
+        /// <param name="isFirstCall">Whether or not this is the first call of the recursive function</param>
+        /// <seealso cref="TripleTriadGameContainer.GameruleType"/>
+        private void PropogateSideEffects(int x, int y, bool isFirstCall) {
             TripleTriadCard placedCard = _playingField[y, x];
 
+            List<TripleTriadGameContainer.IGameRuleHandler> ruleHandlers = new List<TripleTriadGameContainer.IGameRuleHandler>(_attachedContainer.ActiveGameRules.Count);
+            ruleHandlers.AddRange(_attachedContainer.ActiveGameRules.Select(TripleTriadGameContainer.GameHandlerFactory.GetHandler));
+            
             // Get the cards adjacent to the card that cause the update
             // Select the face that is touching each of our faces (opposite face)
             foreach (TripleTriadCard.FaceDirection value in Enum.GetValues(typeof(TripleTriadCard.FaceDirection))) {
-                TripleTriadCard.FaceDirection opposite = GetOppositeDirection(value);
+                TripleTriadCard.FaceDirection opposite = TripleTriadCard.GetOppositeDirection(value);
                 TripleTriadGameContainer.Coordinate coord = GetCoorindateOffset(value);
                 var nx = x + coord.X;
                 var ny = y + coord.Y;
@@ -128,20 +159,39 @@ namespace CodeContractTest
                 
                 if (existingCard == null) continue;
                 if (existingCard.Owner == placedCard.Owner) continue;
-                
-                // Basic GameRule: Greater than
-                // If this is made a Gamerule rather than assumed, could provide more flexible game modes?
-                if (existingCard.GetCardValue(opposite) < placedCard.GetCardValue(value))
+
+                int oppositeValue = existingCard.GetCardValue(opposite);
+                int placedValue = placedCard.GetCardValue(value);
+
+                foreach (var ruleHandler in ruleHandlers) {
+                    ruleHandler.PerFaceStep(value, existingCard, placedCard);
+                }
+            }
+
+            foreach (var ruleHandler in ruleHandlers) {
+                var affecteCardDirections = ruleHandler.GetAffectedCards();
+                foreach (var faceDirection in affecteCardDirections) {
+                    TripleTriadGameContainer.Coordinate coord = GetCoorindateOffset(faceDirection);
+                    var nx = x + coord.X;
+                    var ny = y + coord.Y;
+
+                    if (nx < 0 || nx == FieldWidth || ny < 0 || ny == FieldHeight) continue;
+
+                    var existingCard = _playingField[ny, nx];
                     existingCard.Owner = placedCard.Owner;
+
+                    if (ruleHandler.PropgatesSideEffects)
+                        PropogateSideEffects(nx, ny, false);
+                }
             }
         }
 
         /// <summary>
-        /// Checks to see if the placement of a card will cause ownership changes in any other cards based on the current Gamerules
+        /// Checks to see if the placement of a card will cause ownership changes in any other cards based on the current GameruleType
         /// </summary>
         /// <param name="x">The x coordinate of the card which caused the check</param>
         /// <param name="y">The y coordinate of the card which caused the check</param>
-        /// <seealso cref="TripleTriadGameContainer.Gamerules"/>
+        /// <seealso cref="TripleTriadGameContainer.GameruleType"/>
         [Obsolete("Replaced by PropogateSideEffects. Not to be removed until PropogateSideEffect has been completely verified")]
         private void PropogateSideEffectsOld(int x, int y) {
             Contract.Requires(x >= 0);
