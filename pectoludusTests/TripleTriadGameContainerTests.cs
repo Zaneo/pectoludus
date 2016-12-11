@@ -22,8 +22,8 @@ namespace pectoludus.Tests
         [TestMethod]
         public void RulesetTripleTriadGameContainerTest() {
             var gameruleTypes =
-                Enum.GetValues(typeof (TripleTriadGameContainer.GameruleType))
-                    .Cast<TripleTriadGameContainer.GameruleType>()
+                Enum.GetValues(typeof (GameruleType))
+                    .Cast<GameruleType>()
                     .ToList();
 
             TripleTriadGameContainer testContainer = new TripleTriadGameContainer(gameruleTypes);
@@ -33,7 +33,7 @@ namespace pectoludus.Tests
             return new TripleTriadCard("TestCard_" + value, new[] {value, value, value, value}, category);
         }
 
-        private void CreateContainerForGame(List<TripleTriadGameContainer.GameruleType> rules, out TripleTriadGameContainer container, out TripleTriadHand npcHand, out TripleTriadHand playerHand) {
+        private void CreateContainerForGame(List<GameruleType> rules, out TripleTriadGameContainer container, out TripleTriadHand npcHand, out TripleTriadHand playerHand) {
             container = new TripleTriadGameContainer(rules);
 
             container.AddPlayer(TripleTriadCard.Ownership.NPC);
@@ -87,7 +87,7 @@ namespace pectoludus.Tests
             TripleTriadHand npcHand, playerHand;
 
             CreateContainerForGame(
-                new List<TripleTriadGameContainer.GameruleType> {TripleTriadGameContainer.GameruleType.GreaterThan},
+                new List<GameruleType> {GameruleType.GreaterThan},
                 out testContainer, out npcHand, out playerHand);
 
             int npcCount =0;
@@ -179,14 +179,34 @@ namespace pectoludus.Tests
             TripleTriadHand npcHand, playerHand;
 
             CreateContainerForGame(
-                new List<TripleTriadGameContainer.GameruleType> { TripleTriadGameContainer.GameruleType.Plus },
+                new List<GameruleType> { GameruleType.Plus },
                 out testContainer, out npcHand, out playerHand);
             Assert.Inconclusive("Not Implemented");
         }
 
         [TestMethod]
         public void ResetForNewGameTest() {
-            Assert.Inconclusive("Not Implemented");
+            TripleTriadGamegrid gamegrid = new TripleTriadGamegrid();
+
+            for (int i = 0; i < TripleTriadGamegrid.FieldHeight; i++) {
+                for (int j = 0; j < TripleTriadGamegrid.FieldWidth; j++) {
+                    TripleTriadCard card = CreateUniformValuedCard(1);
+                    gamegrid.TryPlaceCard(new Coordinate(i, j), ref card);
+                }
+            }
+            Assert.AreEqual(TripleTriadGamegrid.FieldWidth* TripleTriadGamegrid.FieldHeight, gamegrid.NumberofCardsOnField);
+            gamegrid.ResetGameGrid();
+
+            Assert.AreEqual(0, gamegrid.NumberofCardsOnField);
+            Assert.IsTrue(gamegrid.CardCountByOwnerDirty);
+
+            // See if all the spaces still exist, and are placeable.
+            for (int i = 0; i < TripleTriadGamegrid.FieldHeight; i++) {
+                for (int j = 0; j < TripleTriadGamegrid.FieldWidth; j++) {
+                    TripleTriadCard card = CreateUniformValuedCard(1);
+                    Assert.IsTrue(gamegrid.TryPlaceCard(new Coordinate(i, j), ref card));
+                }
+            }
         }
 
         [TestMethod]
@@ -242,7 +262,7 @@ namespace pectoludus.Tests
 
             foreach (var player in players) {
                 testContainer.AddPlayer(player);
-                var attachedPlayer = testContainer.GetPlayers();
+                var attachedPlayer = testContainer.Players;
                 Assert.IsTrue(attachedPlayer.Contains(player));
             }
         }

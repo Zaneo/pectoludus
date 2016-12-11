@@ -9,6 +9,28 @@ using System.Threading.Tasks;
 
 namespace pectoludus
 {
+
+    public struct CardDefinition
+    {
+        public const int CardFaceCount = 4;
+
+        public string Name { get; }
+
+        public int[] Values { get; }
+
+        public TripleTriadCard.Category Family { get; }
+
+        public CardDefinition(string name, int[] values, TripleTriadCard.Category family)
+        {
+            Contract.Requires(!string.IsNullOrEmpty(name));
+            Contract.Requires(values.Length == CardFaceCount);
+            
+            Name = name;
+            Values = values;
+            Family = family;
+        }
+    }
+
     [DebuggerDisplay("Name={Name}, Owner={Owner}")]
     public class TripleTriadCard
     {
@@ -17,22 +39,7 @@ namespace pectoludus
         /// </summary>
         // Since name, values, and family are all static, why is this duplicated? Possible for TripleTriadCard to just contain a copy of this information?
         // Or if possible, lookup the card based on ID, so it is only stored once.
-        public struct CardDefinition
-        {
-            public string Name { get; }
-
-            public int[] Values { get; }
-
-            public Category Family { get; }
-
-            public CardDefinition(string name, int[] values, Category family)
-            {
-                Contract.Requires(values.Length == CardFaceCount);
-                Name = name;
-                Values = values;
-                Family = family;
-            }
-        }
+        
 
         /// <summary>
         /// List of all possible cards
@@ -49,7 +56,7 @@ namespace pectoludus
         };
 
         private static readonly List<char> CardValueString = new List<char>();
-        private const int CardFaceCount = 4;
+        
         private const int CardMaxFaceValue = 10;
 
         public enum FaceDirection
@@ -100,7 +107,7 @@ namespace pectoludus
 
         static TripleTriadCard()
         {
-            Debug.Assert(CardValueString != null, "CardValueString != null");
+            //Contract.Requires(CardValueString != null);
             for (int i = 0; i < CardMaxFaceValue; i++) {
                 CardValueString.Add(i.ToString("X", CultureInfo.InvariantCulture)[0]);
             }
@@ -110,7 +117,9 @@ namespace pectoludus
 
         public TripleTriadCard(string name, int[] baseValues, Category family)
         {
-            Contract.Requires(baseValues.Length == CardFaceCount);
+            Contract.Requires(baseValues != null);
+            Contract.Requires(baseValues.Length == CardDefinition.CardFaceCount);
+
             Name = name;
             _baseValues = baseValues;
             Family = family;
@@ -147,7 +156,7 @@ namespace pectoludus
         public int GetCardValue(FaceDirection direction)
         {
             Contract.Requires(Enum.IsDefined(typeof(FaceDirection), direction));
-            Contract.Ensures(Contract.Result<int>() < CardValueString.Count + Modifier);
+            //Contract.Ensures(Contract.Result<int>() < CardValueString.Count + Modifier);
             return _baseValues[(int)direction] + Modifier;
         }
 
@@ -157,14 +166,16 @@ namespace pectoludus
         /// <param name="x">The x card coordinate</param>
         /// <param name="y">The y card coordinate</param>
         /// <remarks>The coordinates are converted to screen coordinates internally, assuming a card size of 3x3</remarks>
-        public void DrawCard(int x, int y)
+        public void DrawCardAsASCII(int x, int y)
         {
+            // ReSharper disable LocalizableElement
             Console.SetCursorPosition(x * 3, y * 3);
-            Console.Write("╔{0}╗", _baseValues[1].ToString("X"));
+            Console.Write("╔{0:X}╗", _baseValues[1]);
             Console.SetCursorPosition(x * 3, y * 3 + 1);
-            Console.Write("{0} {1}", _baseValues[0].ToString("X"), _baseValues[2].ToString("X"));
+            Console.Write("{0:X} {1:X}", _baseValues[0], _baseValues[2]);
             Console.SetCursorPosition(x * 3, y * 3 + 2);
-            Console.Write("╚{0}╝", _baseValues[3].ToString("X"));
+            Console.Write("╚{0:X}╝", _baseValues[3]);
+            // ReSharper enable LocalizableElement
         }
     }
 }

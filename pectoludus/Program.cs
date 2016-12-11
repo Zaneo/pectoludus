@@ -9,13 +9,14 @@ using System.Globalization;
 using System.Net.Configuration;
 using System.Threading;
 
+
 namespace pectoludus
 {
     class Program {
         static void Main(string[] args) {
             Console.OutputEncoding = Encoding.UTF8;
 
-            TripleTriadGameContainer gameContainer = new TripleTriadGameContainer(new List<TripleTriadGameContainer.GameruleType>() {TripleTriadGameContainer.GameruleType.Plus});
+            TripleTriadGameContainer gameContainer = new TripleTriadGameContainer(new List<GameruleType> {GameruleType.Plus});
             gameContainer.AddPlayer(TripleTriadCard.Ownership.Player);
             gameContainer.AddPlayer(TripleTriadCard.Ownership.NPC);
 

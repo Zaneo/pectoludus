@@ -1,132 +1,157 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
+using static pectoludus.TripleTriadCard;
 
 namespace pectoludus
 {
-    /// <summary>
-    /// Represents a complete game of cards
-    /// </summary>
-     public class TripleTriadGameContainer {
-        public struct Coordinate {
+    public class GreaterThanHandler : IGameRuleHandler
+    {
+        readonly List<FaceDirection> _affectetdCardList = new List<FaceDirection>();
 
-            public int X { get; private set; }
-            public int Y { get; private set; }
-            public Coordinate(int x, int y) {
-                X = x;
-                Y = y;
-            }
+        public string NameString { get; set; }
+        public GameruleType RuleType { get; set; }
+        public bool PropgatesSideEffects { get; set; }
+
+        public void PerFaceStep(FaceDirection direction, TripleTriadCard existingCard, TripleTriadCard placedCard)
+        {
+            FaceDirection opposite = GetOppositeDirection(direction);
+            if (existingCard.GetCardValue(opposite) < placedCard.GetCardValue(direction))
+                _affectetdCardList.Add(direction);
         }
 
-
-        public struct GameRuleDefinition {
-            public GameRuleDefinition(string nameString, GameruleType ruleType, bool propgatesSideEffects, Type handler) {
-                NameString = nameString;
-                RuleType = ruleType;
-                PropgatesSideEffects = propgatesSideEffects;
-                Handler = handler;
-            }
-
-            public string NameString { get; set; }
-            public GameruleType RuleType { get; set; }
-            public bool PropgatesSideEffects { get; set; }
-            public Type Handler { get; set; }
-        }
-
-        public interface IGameRuleHandler {
-            string NameString { get; set; }
-            GameruleType RuleType { get; set; }
-            bool PropgatesSideEffects { get; set; }
-
-            void PerFaceStep(TripleTriadCard.FaceDirection direction, TripleTriadCard existingCard, TripleTriadCard placedCard);
-            List<TripleTriadCard.FaceDirection> GetAffectedCards();
-        }
-
-        public class GreaterThanHandler : IGameRuleHandler {
-            readonly List<TripleTriadCard.FaceDirection> _affectetdCardList = new List<TripleTriadCard.FaceDirection>();
-
-            public string NameString { get; set; }
-            public GameruleType RuleType { get; set; }
-            public bool PropgatesSideEffects { get; set; }
-
-            public void PerFaceStep(TripleTriadCard.FaceDirection direction, TripleTriadCard existingCard, TripleTriadCard placedCard) {
-                TripleTriadCard.FaceDirection opposite = TripleTriadCard.GetOppositeDirection(direction);
-                if (existingCard.GetCardValue(opposite) < placedCard.GetCardValue(direction))
-                    _affectetdCardList.Add(direction);
-            }
-
-            public List<TripleTriadCard.FaceDirection> GetAffectedCards() {
+        public ICollection<FaceDirection> AffectedCards
+        {
+            get
+            {
                 return _affectetdCardList;
             }
         }
+    }
 
-        public class PlusHandler : IGameRuleHandler {
+    public class PlusHandler : IGameRuleHandler
+    {
 
-            public string NameString { get; set; }
-            public GameruleType RuleType { get; set; }
-            public bool PropgatesSideEffects { get; set; }
+        public string NameString { get; set; }
+        public GameruleType RuleType { get; set; }
+        public bool PropgatesSideEffects { get; set; }
 
-            private readonly Dictionary<int, List<TripleTriadCard.FaceDirection>> _cardsWithSameSum = new Dictionary<int,List<TripleTriadCard.FaceDirection>>();
+        private readonly Dictionary<int, List<FaceDirection>> _cardsWithSameSum = new Dictionary<int, List<FaceDirection>>();
 
-            public void PerFaceStep(TripleTriadCard.FaceDirection direction, TripleTriadCard existingCard, TripleTriadCard placedCard) {
-                TripleTriadCard.FaceDirection opposite = TripleTriadCard.GetOppositeDirection(direction);
-                int sum = existingCard.GetCardValue(opposite) + placedCard.GetCardValue(direction);
+        public void PerFaceStep(FaceDirection direction, TripleTriadCard existingCard, TripleTriadCard placedCard)
+        {
+            FaceDirection opposite = GetOppositeDirection(direction);
+            int sum = existingCard.GetCardValue(opposite) + placedCard.GetCardValue(direction);
 
-                if (!_cardsWithSameSum.ContainsKey(sum))
-                    _cardsWithSameSum.Add(sum,new List<TripleTriadCard.FaceDirection> {direction});
-                else
-                    _cardsWithSameSum[sum].Add(direction);
+            if (!_cardsWithSameSum.ContainsKey(sum))
+                _cardsWithSameSum.Add(sum, new List<FaceDirection> { direction });
+            else
+                _cardsWithSameSum[sum].Add(direction);
 
-            }
+        }
 
-            public List<TripleTriadCard.FaceDirection> GetAffectedCards() {
+        public ICollection<FaceDirection> AffectedCards
+        {
+            get
+            {
                 return ((from card in _cardsWithSameSum
-                    where card.Value?.Count >= 2
-                    select card.Value).SelectMany(i => i)).ToList();
+                         where card.Value?.Count >= 2
+                         select card.Value).SelectMany(i => i)).ToList();
             }
         }
+    }
 
-        public static class GameHandlerFactory {
-            public static IGameRuleHandler GetHandler(GameruleType gameruleType) {
-                GameRuleDefinition definition = GameruleDefinitionList[gameruleType];
-                IGameRuleHandler handler = (IGameRuleHandler) Activator.CreateInstance(definition.Handler);
-
-                handler.NameString = definition.NameString;
-                handler.RuleType = definition.RuleType;
-                handler.PropgatesSideEffects = definition.PropgatesSideEffects;
-
-                return handler;
-            }
-        }
-
-
-        /// <summary>
-        /// Used to keep track of different rules that may be in play
-        /// </summary>
-        public enum GameruleType {
-            None,
-            GreaterThan,
-            Plus,
-            Same,
-        }
-
-        private readonly TripleTriadGamegrid _gamegrid;
-
-        private readonly Dictionary<TripleTriadCard.Category, List<Coordinate>> _currentCardsInFamily = new Dictionary<TripleTriadCard.Category, List<Coordinate>>();
-
-        private readonly Dictionary<TripleTriadCard.Ownership, TripleTriadHand> _playersHands = new Dictionary<TripleTriadCard.Ownership, TripleTriadHand>(2);
-
-        public readonly List<GameruleType> ActiveGameRules;
-
+    public static class GameHandlerFactory
+    {
         public static readonly Dictionary<GameruleType, GameRuleDefinition> GameruleDefinitionList = new Dictionary<GameruleType, GameRuleDefinition>() {
             {GameruleType.GreaterThan, new GameRuleDefinition("Greater Than",GameruleType.GreaterThan, false, typeof(GreaterThanHandler))},
             {GameruleType.Plus, new GameRuleDefinition("Plus", GameruleType.Plus, true, typeof(PlusHandler)) },
         };
+
+        public static IGameRuleHandler GetHandler(GameruleType gameruleType)
+        {
+            GameRuleDefinition definition = GameruleDefinitionList[gameruleType];
+            IGameRuleHandler handler = (IGameRuleHandler)Activator.CreateInstance(definition.Handler);
+
+            handler.NameString = definition.NameString;
+            handler.RuleType = definition.RuleType;
+            handler.PropgatesSideEffects = definition.PropgatesSideEffects;
+
+            return handler;
+        }
+    }
+
+    /// <summary>
+    /// Used to keep track of different rules that may be in play
+    /// </summary>
+    public enum GameruleType
+    {
+        None,
+        GreaterThan,
+        Plus,
+        Same,
+    }
+
+    public struct GameRuleDefinition
+    {
+        public GameRuleDefinition(string nameString, GameruleType ruleType, bool propgatesSideEffects, Type handler)
+        {
+            NameString = nameString;
+            RuleType = ruleType;
+            PropgatesSideEffects = propgatesSideEffects;
+            Handler = handler;
+        }
+
+        public string NameString { get; set; }
+        public GameruleType RuleType { get; set; }
+        public bool PropgatesSideEffects { get; set; }
+        public Type Handler { get; set; }
+
+    }
+
+    public interface IGameRuleHandler
+    {
+        string NameString { get; set; }
+        GameruleType RuleType { get; set; }
+        bool PropgatesSideEffects { get; set; }
+
+        void PerFaceStep(FaceDirection direction, TripleTriadCard existingCard, TripleTriadCard placedCard);
+        ICollection<FaceDirection> AffectedCards { get; }
+    }
+
+    public struct Coordinate
+    {
+
+        public int X { get; private set; }
+        public int Y { get; private set; }
+        public Coordinate(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+    }
+
+    /// <summary>
+    /// Represents a complete game of cards
+    /// </summary>
+    public class TripleTriadGameContainer {
         
+        
+        private readonly TripleTriadGamegrid _gamegrid;
+
+        private readonly Dictionary<Category, List<Coordinate>> _currentCardsInFamily = new Dictionary<Category, List<Coordinate>>();
+
+        private readonly Dictionary<Ownership, TripleTriadHand> _playersHands = new Dictionary<Ownership, TripleTriadHand>(2);
+
+        
+
+        public ICollection<GameruleType> ActiveGameRules { get; }
+
         /// <summary>
         /// Resets aspects of the GameContainer to prepare for a new game to be played.
         /// </summary>
@@ -145,8 +170,8 @@ namespace pectoludus
             return PlayCard(tripleTriadCard, new Coordinate(x, y));
         }
 
-        public int GetCardCountForOwner(TripleTriadCard.Ownership ownership) {
-            Contract.Requires(Enum.IsDefined(typeof(TripleTriadCard.Ownership), ownership));
+        public int GetCardCountForOwner(Ownership ownership) {
+            Contract.Requires(Enum.IsDefined(typeof(Ownership), ownership));
             if (_gamegrid.CardCountByOwnerDirty)
                 _gamegrid.UpdateCardCountByPlayer();
 
@@ -160,7 +185,7 @@ namespace pectoludus
         /// </summary>
         /// <param name="category">The category of the card</param>
         /// <returns></returns>
-        public int GetCardCountForCategory(TripleTriadCard.Category category) {
+        public int GetCardCountForCategory(Category category) {
             return !_currentCardsInFamily.ContainsKey(category) ? 0 : _currentCardsInFamily[category].Count;
         }
 
@@ -185,8 +210,8 @@ namespace pectoludus
         /// Adds a player to the current game, using the specified ownership to keep track of card hands
         /// </summary>
         /// <param name="ownership">The ownership key of the specified player</param>
-        public void AddPlayer(TripleTriadCard.Ownership ownership) {
-            Contract.Requires(Enum.IsDefined(typeof(TripleTriadCard.Ownership),ownership));
+        public void AddPlayer(Ownership ownership) {
+            Contract.Requires(Enum.IsDefined(typeof(Ownership),ownership));
             _playersHands.Add(ownership, new TripleTriadHand(ownership, this));
             _gamegrid.RegisterPlayer(ownership);
         }
@@ -195,8 +220,13 @@ namespace pectoludus
         /// Gets the Ownership key of all the currently attached players
         /// </summary>
         /// <returns>The list of Ownership keys of the attached players</returns>
-        public List<TripleTriadCard.Ownership> GetPlayers() {
-            return new List<TripleTriadCard.Ownership>(_playersHands.Keys);
+        public IReadOnlyCollection<Ownership> Players
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<IReadOnlyCollection<Ownership>>() != null);
+                return new ReadOnlyCollection<Ownership>(_playersHands.Keys.ToList());
+            }
         }
 
         /// <summary>
@@ -204,8 +234,8 @@ namespace pectoludus
         /// </summary>
         /// <param name="ownership">The ownership key</param>
         /// <param name="playerHand">The hand of cards</param>
-        public void GetPlayerHand(TripleTriadCard.Ownership ownership, out TripleTriadHand playerHand) {
-            Contract.Requires(Enum.IsDefined(typeof(TripleTriadCard.Ownership), ownership));
+        public void GetPlayerHand(Ownership ownership, out TripleTriadHand playerHand) {
+            Contract.Requires(Enum.IsDefined(typeof(Ownership), ownership));
             playerHand = _playersHands[ownership];
         }
 

@@ -38,7 +38,8 @@ namespace pectoludus
         /// Adds many cards using the specified list
         /// </summary>
         /// <param name="cardNameList">Valid list of card names</param>
-        public void AddManyCards(List<string> cardNameList) {
+        public void AddManyCards(ICollection<string> cardNameList) {
+            Contract.Requires(cardNameList != null);
             foreach (var cardName in cardNameList) {
                 TripleTriadCard card = new TripleTriadCard(cardName) {Owner = Owner};
                 AddCard(ref card);
